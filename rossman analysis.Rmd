@@ -1,0 +1,258 @@
+---
+title: ""
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h1><center><b>ROOSMAN Sales Analysis<b><center></h1>
+<br>
+<h2><center>------Data Cleaning--------<center></h2>
+
+<h2>Reading Data Sets<h2>
+```{r}
+train_data=read.csv("Data Set Csv Rossman/train.csv")
+store=read.csv("Data Set Csv Rossman/store.csv")
+
+```
+
+<h2> Data Set Features Description</h2>
+```{r}
+
+names(train_data)
+names(store)
+
+```
+
+<h2> Arranging The Data Set</h2>
+```{r}
+library(dplyr)
+train=arrange(train_data,DayOfWeek,Date)
+head(train)
+
+```
+<h2>STORES  WHICH  WERE NOT OPEN HAVE NO ROLE In Analysis</h2>
+```{r}
+train=filter(train,Open==1)
+head(train)
+
+```
+
+<h2>Stores Which were Open and Sales were Zero have no role in Time Series<h2>
+```{r}
+train=filter(train,Sales>0)
+head(train)
+
+
+```
+
+
+
+
+```{r}
+head(filter(store,is.na(CompetitionOpenSinceMonth)))
+
+```
+<h2> Merge The Train and Store Data Set in To Single Frame</h2>
+```{r}
+df=merge(train,store)
+head(df)
+
+```
+<h2>Replacing The Null values with Median of The Column</h2>
+```{r}
+#For Competition Distance
+m=median(df$CompetitionDistance,na.rm = TRUE)
+df=df%>%mutate(CompetitionDistance=ifelse(is.na(CompetitionDistance),m,CompetitionDistance))
+filter(df,is.na(CompetitionDistance))
+#For Promo Week
+m=median(df$Promo2SinceWeek,na.rm = TRUE)
+df=df%>%mutate(Promo2SinceWeek=ifelse(is.na(Promo2SinceWeek),m,Promo2SinceWeek))
+filter(df,is.na(Promo2SinceWeek))
+
+# For Promo Year
+m=median(df$Promo2SinceYear,na.rm = TRUE)
+df=df%>%mutate(Promo2SinceYear=ifelse(is.na(Promo2SinceYear),m,Promo2SinceYear))
+filter(df,is.na(Promo2SinceYear))
+# For Competiiton Open Since Month
+m=median(df$CompetitionOpenSinceMonth,na.rm = TRUE)
+df=df%>%mutate(CompetitionOpenSinceMonth=ifelse(is.na(CompetitionOpenSinceMonth),m,CompetitionOpenSinceMonth))
+filter(df,is.na(CompetitionOpenSinceMonth))
+#For COmpetiton Open Since Year
+m=median(df$CompetitionOpenSinceYear,na.rm = TRUE)
+df=df%>%mutate(CompetitionOpenSinceYear=ifelse(is.na(CompetitionOpenSinceYear),m,CompetitionOpenSinceYear))
+filter(df,is.na(CompetitionOpenSinceYear))
+
+```
+<h2> No Null value exist</h2>
+```{r}
+head(df)
+```
+
+<h2><center>------Data Visulization--------<center></h2>
+<h2>CORRELATION MATRIX To See Features Importance<h2>
+
+
+
+
+
+<h2> Sales VS Customers Relation</h2>
+```{r}
+library(ggplot2)
+ggplot(data=df,aes(x=Customers,y=Sales))+geom_point(color="blue")
+
+```
+
+
+<h2>Sales With Respect To Promo </h2>
+```{r}
+sales_by_promo=df%>%group_by(Promo)%>%summarise(Average_Sales=mean(Sales))
+sales_by_promo
+ggplot(data=sales_by_promo,aes(x=as.factor(Promo),y=Average_Sales,fill=as.factor(Promo)))+geom_bar(stat='identity',width=0.2)+xlab("Promo")+ggtitle("Sales By Promo")
+
+
+```
+
+<h2>Sales By Prom Bases On The Week Days</h2>
+```{r}
+
+sales_by_promo=df%>%group_by(DayOfWeek,Promo)%>%summarise(Average_Sales=mean(Sales))
+sales_by_promo
+ggplot(data=sales_by_promo,aes(x=DayOfWeek,y=Average_Sales,fill=as.factor(Promo)))+geom_bar(stat='identity',position="dodge")
+
+```
+
+<h2>Sales By Month<h2>
+```{r}
+df=df%>%mutate(Month=format(as.Date(Date),"%m"))
+sort(unique(df$Month))
+sales_by_month=df%>%group_by(Month)%>%summarise(Average_Sales=mean(Sales))
+sales_by_month
+ggplot(data=sales_by_month,aes(x=Month,y=Average_Sales,fill=(Month)))+geom_bar(stat='identity')+ggtitle("Sales With Respect TO Month")
+```
+
+<h2> Sales With Respect To Total Days Of Month<h2>
+```{r}
+
+
+df=df%>%mutate(MonthDays=format(as.Date(Date),"%d"))
+
+sort(unique(df$MonthDays))
+sales_by_monthday=df%>%group_by(MonthDays)%>%summarise(Average_Sales=mean(Sales))
+sales_by_monthday
+ggplot(data=sales_by_monthday,aes(x=MonthDays,y=Average_Sales,fill=(MonthDays)))+geom_bar(stat='identity')+ggtitle("Sales With Respect TO Month Days")
+
+
+
+
+```
+
+
+<h2>Sales of Every Day in ALL MOnths</h2>
+```{r}
+names(df)
+sales_by_month_date_days=df%>%group_by(MonthDays,Month)%>%summarise(Average_Sales=mean(Sales))
+sales_by_month_date_days
+ggplot(data=sales_by_month_date_days,aes(Month,Average_Sales,fill=MonthDays))+geom_bar(stat='identity')+facet_wrap(~MonthDays)
+
+```
+<h2>Sales By Week Days</h2>
+```{r}
+
+#install.packages("lubridate")
+library(lubridate)
+df=df%>%mutate(Week_Days=wday(as.Date(Date),week_start=1,label=TRUE))
+sales_by_week_day=df%>%group_by(Week_Days)%>%summarise(Average_Sales=mean(Sales))
+sales_by_week_day
+ggplot(sales_by_week_day,aes(Week_Days,Average_Sales,fill=(Week_Days)))+geom_bar(stat='identity')
+```
+<h2>Sales BY Store Type</h2>
+
+```{r}
+sales_by_store_type=df%>%group_by(StoreType)%>%summarise(Sales=mean(Sales))
+sales_by_store_type
+ggplot(data=sales_by_store_type,aes(x=StoreType,y=Sales,fill=as.factor(StoreType)))+geom_bar(stat='identity')+ggtitle("Sales By Store Type")
+```
+<h2> Sales By Store Type and Assortment</h2>
+
+```{r}
+
+sales_by_assor_stype=df%>%group_by(Assortment,StoreType)%>%summarise(Average_Sales=mean(Sales))
+ggplot(data=sales_by_assor_stype,aes(StoreType,Average_Sales,fill=as.factor(Assortment)))+geom_bar(stat='identity',position='dodge')
+
+```
+<h2> Find Out Which Stores Has Maximum Sales</h2>
+
+```{r}
+
+
+sales_by_store_id=df%>%group_by(Store,StoreType)%>%summarise(Average_Sales=mean(Sales))
+sales_by_store_id=arrange(sales_by_store_id,desc(Average_Sales))
+head(sales_by_store_id)
+
+```
+<h2>Minimum Sales</h2>
+```{r}
+
+tail(sales_by_store_id)
+
+```
+<h2>Visualization Of All Stores</h2>
+```{r}
+sales_by_id=df%>%group_by(Store)%>%summarise(Average_Sales=mean(Sales))
+sales_by_id=arrange(sales_by_id,desc(Average_Sales))
+max_stores=sales_by_id$Store[1]
+min_stores=tail(sales_by_id$Store[1])
+
+ggplot(data=sales_by_id,aes(x=Store,y=Average_Sales))+geom_point(color="blue")+
+ggtitle("Average Sales BY Store Id")+
+geom_text(data=sales_by_id,aes(x=max_stores,y=max(Average_Sales),label="max"))+
+geom_text(data=sales_by_id,aes(x=min_stores,y=min(Average_Sales),label="min"))
+                                                                                                                               
+```
+<h2>Sales By Year</h2>
+```{r}
+
+df=df%>%mutate(Year=format(as.Date(Date),"%y"))
+unique(df$Year)
+sales_by_year=df%>%group_by(Year)%>%summarise(Average_Sales=mean(Sales))
+sales_by_year
+ggplot(data=sales_by_year,aes(x=Year,y=Average_Sales,fill=Year))+geom_bar(stat='identity')+ggtitle("Sales With Respect To Year")
+
+```
+<h2>Sales With Respect To School Holidays</h2>
+```{r}
+
+sales_by_School_Holiday=df%>%group_by(SchoolHoliday)%>%summarise(Average_Sales=mean(Sales))
+sales_by_School_Holiday
+ggplot(data=sales_by_School_Holiday,aes(x=SchoolHoliday,y=Average_Sales,fill=SchoolHoliday))+
+geom_bar(stat='identity')+ggtitle('The Effect of School Holidy on Sale')
+
+
+```
+<h2>The Effect of Schools Holiday On Every Day of Week</h2>
+
+```{r}
+
+sales_by_school=df%>%group_by(Week_Days,SchoolHoliday)%>%summarise(Average_Sales=mean(Sales))
+head(sales_by_school)
+ggplot(data=sales_by_school,aes(Week_Days,Average_Sales,fill=as.factor(SchoolHoliday)))+
+geom_bar(stat='identity',position="dodge")+
+ggtitle("The Effect Of Schools Holidays ON  ALL Week Days")
+
+
+```
+<h2>Sales With Respect To Competition Distance</h2>
+
+```{r}
+
+
+average_sales_by_Competition_Distance=df%>%group_by(CompetitionDistance)%>%summarise(Average_Sales=mean(Sales))
+head(average_sales_by_Competition_Distance)
+ggplot(data=average_sales_by_Competition_Distance,aes(x=CompetitionDistance,y=Average_Sales))+
+geom_point(color="brown3")
+```
